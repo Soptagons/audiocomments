@@ -18,7 +18,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Watch for new audio files in the audioDir
 	fs.watch(audioDir, (eventType, filename) => {
-		if (eventType === 'rename' && filename && filename.endsWith('.webm')) {
+		if (eventType === 'rename' && filename && filename.endsWith('.mp3')) {
 		  const audioUrl = path.join(audioDir, filename);
 	  
 		  // Loop through each line to find the lines with '//'
@@ -47,15 +47,7 @@ export function activate(context: vscode.ExtensionContext) {
 						localResourceRoots: [vscode.Uri.file(path.join(__dirname, '../electron_app/audio_recordings'))]
 				  };
 				  inset.webview.html = `
-				  <input type="file">
-				  <audio controls></audio>
-				  <script>
-				  var input = document.querySelector("input[type=file]");
-				  var audio = document.querySelector("audio");
-				  input.onchange = function() {
-					audio.src = URL.createObjectURL(input.files[0]);
-				  }
-				  </script>
+					<audio controls src="${webviewAudioUrlString}"></audio>
 				  `;
 				}
 			  }

@@ -1,35 +1,33 @@
 const { ipcRenderer } = require('electron');
 const fs = require('fs');
+const path = require('path');
+const ffmpeg = require('fluent-ffmpeg');
 
 let mediaRecorder;
-let audioChunks = [];
 
 document.addEventListener('DOMContentLoaded', (event) => {
-
     const statusElement = document.getElementById('status');
 
     ipcRenderer.on('toggle-recording', () => {
-
-        console.log('Toggle Recording Event Received');
-
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
-            audioChunks = [];
         } else {
             navigator.mediaDevices.getUserMedia({ audio: true })
             .then(stream => {
-                mediaRecorder = new MediaRecorder(stream, {mimeType:'audio/webm; codecs=opus'});
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                let audioChunks = [];
                 mediaRecorder.ondataavailable = event => {
                     audioChunks.push(event.data);
                 };
                 mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm; codecs=opus' });
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                     const reader = new FileReader();
                     reader.onload = function() {
-                      const buffer = Buffer.from(reader.result);
-                      const audioFile = `audio_recordings/audio_${Date.now()}.webm`;
-                      fs.writeFileSync(audioFile, buffer);
-                      statusElement.textContent = "Recording saved";
+                        const buffer = Buffer.from(reader.result);
+                        const oggFilePath = path.join(__dirname, `audio_recordings/audio_${Date.now()}.webm`);
+                        fs.writeFileSync(oggFilePath, buffer);
+                        const mp3FilePath = oggFilePath.replace('.webm', '.mp3');
+                        convertToMp3(oggFilePath, mp3FilePath);
                     };
                     reader.readAsArrayBuffer(audioBlob);
                 };
@@ -39,3 +37,19 @@ document.addEventListener('DOMContentLoaded', (event) => {
         }
     });
 });
+
+function convertToMp3(oggFilePath, mp3FilePath) {
+    return new Promise((resolve, reject) => {
+        ffmpeg(oggFilePath)
+            .format('mp3')
+            .on('end', () => {
+                statusElement.textContent = "Recording saved as MP3";
+                resolve();
+            })
+            .on('error', (err) => {
+                console.log('An error occurred: ' + err.message);
+                reject(err);
+            })
+            .save(mp3FilePath);
+    });
+}
