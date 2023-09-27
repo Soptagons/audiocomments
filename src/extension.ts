@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const lineToInsetMap = new Map<number, vscode.WebviewEditorInset>();
+const lineToInsetMap = new Map<number, { inset: vscode.WebviewEditorInset, audioUrl: string }>();
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -19,45 +19,36 @@ export function activate(context: vscode.ExtensionContext) {
 	// Watch for new audio files in the audioDir
 	fs.watch(audioDir, (eventType, filename) => {
 		if (eventType === 'rename' && filename && filename.endsWith('.mp3')) {
-		  const audioUrl = path.join(audioDir, filename);
-	  
-		  // Loop through each line to find the lines with '//'
-		  const editor = vscode.window.activeTextEditor;
-		  if (editor) {
-			const text = editor.document.getText();
-			const lines = text.split('\n');
-	  
-			lines.forEach((lineText, lineNumber) => {
-			  if (lineText.includes('//')) {
-				// If inset does not exist, create one
-				if (!lineToInsetMap.has(lineNumber)) {
-				  const inset = vscode.window.createWebviewTextEditorInset(editor, lineNumber, 3);
-				  lineToInsetMap.set(lineNumber, inset);
-				}
-	  
-				// Update the inset's HTML with the new audio URL
-				const inset = lineToInsetMap.get(lineNumber);
-				if (inset) {
-				  console.log(audioUrl);
-				  const webviewAudioUrl = inset.webview.asWebviewUri(vscode.Uri.file(audioUrl));
-				  const webviewAudioUrlString = webviewAudioUrl.toString();
-				  console.log(webviewAudioUrlString);
-				  inset.webview.options = {
-						enableScripts: true,
-						localResourceRoots: [vscode.Uri.file(path.join(__dirname, '../electron_app/audio_recordings'))]
-				  };
-				  inset.webview.html = `
-					<audio controls src="${webviewAudioUrlString}"></audio>
-				  `;
-				}
-			  }
-			});
-		  }
+			const audioUrl = path.join(audioDir, filename);
+			const editor = vscode.window.activeTextEditor;
+			if (editor) {
+				const text = editor.document.getText();
+				const lines = text.split('\n');
+				lines.forEach((lineText, lineNumber) => {
+					if (lineText.trim() === '//') {
+						if (!lineToInsetMap.has(lineNumber)) {
+							const inset = vscode.window.createWebviewTextEditorInset(editor, lineNumber, 3);
+							let insetInfo = { inset, audioUrl: '' };
+							// If this line has an inset, update its audioUrl
+							insetInfo.audioUrl = audioUrl;
+							const webviewAudioUrl = insetInfo.inset.webview.asWebviewUri(vscode.Uri.file(audioUrl));
+							const webviewAudioUrlString = webviewAudioUrl.toString();
+							insetInfo.inset.webview.options = {
+								enableScripts: true,
+								localResourceRoots: [vscode.Uri.file(path.join(__dirname, '../electron_app/audio_recordings'))]
+							};
+							insetInfo.inset.webview.html = `<audio controls src="${webviewAudioUrlString}"></audio>`;
+							lineToInsetMap.set(lineNumber, insetInfo);
+						}
+					}
+				});
+			}
 		}
-	  });
+	});
+	
 
 	// Listen for changes to the active text editor
-	const disposable = vscode.workspace.onDidChangeTextDocument((event) => {
+	/*const disposable = vscode.workspace.onDidChangeTextDocument((event) => {
         const editor = vscode.window.activeTextEditor;
         if (editor && event.document === editor.document) {
             const text = editor.document.getText();
@@ -96,7 +87,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(disposable);*/
 }
 
 // This method is called when your extension is deactivated

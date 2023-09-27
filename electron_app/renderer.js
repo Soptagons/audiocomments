@@ -38,12 +38,14 @@ document.addEventListener('DOMContentLoaded', (event) => {
     });
 });
 
-function convertToMp3(oggFilePath, mp3FilePath) {
+function convertToMp3(webmFilePath, mp3FilePath) {
     return new Promise((resolve, reject) => {
-        ffmpeg(oggFilePath)
+        ffmpeg(webmFilePath)
             .format('mp3')
             .on('end', () => {
                 statusElement.textContent = "Recording saved as MP3";
+                // Delete the original .webm file
+                fs.unlinkSync(webmFilePath);
                 resolve();
             })
             .on('error', (err) => {
